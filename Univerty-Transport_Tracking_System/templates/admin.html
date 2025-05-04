@@ -1,0 +1,1140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>UTTS Admin Portal</title>
+ <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <!-- DataTables CSS -->
+  <link rel="stylesheet" href="https://cdn.datatables.net/1.11.5/css/jquery.dataTables.min.css">
+  <!-- SweetAlert2 CSS -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+
+</head>
+<body>
+  <div class="container">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="logo" onclick="toggleSidebar()">
+        <i class="fas fa-bus"></i>
+        <h1>UTTS Admin</h1>
+      </div>
+      <nav>
+        <ul>
+          <li class="active"><a href="#dashboard"><i class="fas fa-home"></i> <span>Dashboard</span></a></li>
+          <li><a href="#user-management"><i class="fas fa-users"></i> <span>User Management</span></a></li>
+          <li><a href="#bus-management"><i class="fas fa-bus-alt"></i> <span>Bus Management</span></a></li>
+          <li><a href="#route-management"><i class="fas fa-route"></i> <span>Route Management</span></a></li>
+          <li><a href="#reports"><i class="fas fa-chart-bar"></i> <span>Reports</span></a></li>
+          <li><a href="#notifications"><i class="fas fa-bell"></i> <span>Notifications</span></a></li>
+          <li><a href="#feedback"><i class="fas fa-comments"></i> <span>Feedback</span></a></li>
+          <li><a href="#settings"><i class="fas fa-cog"></i> <span>Settings</span></a></li>
+        </ul>
+      </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <header>
+        <button class="toggle-sidebar" onclick="toggleSidebar()">
+          <i class="fas fa-bars"></i>
+        </button>
+        <h2 id="page-title">Dashboard</h2>
+        <div class="user-profile" onclick="toggleUserDropdown()">
+          <span>Admin</span>
+          <i class="fas fa-user-circle"></i>
+          <div class="user-dropdown" id="userDropdown">
+            <a href="#"><i class="fas fa-user"></i> Profile</a>
+            <a href="#"><i class="fas fa-cog"></i> Settings</a>
+            <a href="#"><i class="fas fa-sign-out-alt"></i> Logout</a>
+          </div>
+        </div>
+      </header>
+
+      <!-- Dashboard Content -->
+      <div id="dashboard-content">
+        <section class="cards">
+          <div class="card" onclick="showSection('bus-management')">
+            <i class="fas fa-bus"></i>
+            <h3>Active Buses</h3>
+            <p id="active-buses-count">{{ stats.buses }}</p>
+          </div>
+
+          <div class="card" onclick="showSection('user-management')">
+            <i class="fas fa-users"></i>
+            <h3>Total Users</h3>
+            <p id="total-users-count">{{ stats.users }}</p>
+          </div>
+
+          <div class="card" onclick="showSection('route-management')">
+            <i class="fas fa-route"></i>
+            <h3>Active Routes</h3>
+            <p id="active-routes-count">{{ stats.routes }}</p>
+          </div>
+
+          <div class="card" onclick="showSection('feedback')">
+            <i class="fas fa-comments"></i>
+            <h3>New Feedback</h3>
+            <p id="new-feedback-count">{{ stats.feedback }}</p>
+          </div>
+        </section>
+
+        <!-- Real-Time Tracking Map -->
+        <section class="map-section">
+          <h3>Real-Time Bus Tracking</h3>
+          <div id="map"></div>
+        </section>
+
+        <!-- Recent Activity -->
+        <section class="map-section">
+          <h3>Recent Activity</h3>
+          <div class="data-table">
+            <table id="activity-table">
+              <thead>
+                <tr>
+                  <th>Time</th>
+                  <th>Activity</th>
+                  <th>User</th>
+                  <th>Details</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for activity in recent_activity %}
+                <tr>
+                  <td>{{ activity.timestamp }}</td>
+                  <td>{{ activity.action }}</td>
+                  <td>{{ activity.user }}</td>
+                  <td>{{ activity.details }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+
+      <!-- User Management Content -->
+      <div id="user-management-content" style="display: none;">
+        <button class="add-btn" onclick="showAddUserModal()">
+          <i class="fas fa-plus"></i> Add User
+        </button>
+
+        <div class="data-table">
+          <table id="users-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Role</th>
+                <th>Status</th>
+                <th>Last Login</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for user in users %}
+              <tr>
+                <td>{{ user.id }}</td>
+                <td>{{ user.username }}</td>
+                <td>{{ user.email }}</td>
+                <td>{{ user.role|capitalize }}</td>
+                <td>
+                  <span class="status-badge
+                    {% if user.status == 'active' %}status-active
+                    {% elif user.status == 'pending' %}status-pending
+                    {% else %}status-inactive{% endif %}">
+                    {{ user.status|capitalize }}
+                  </span>
+                </td>
+                <td>{{ user.last_login }}</td>
+                <td>
+                  <button class="action-btn view-btn" onclick="viewUser('{{ user.id }}')">
+                    <i class="fas fa-eye"></i>
+                  </button>
+                  <button class="action-btn edit-btn" onclick="editUser('{{ user.id }}')">
+                    <i class="fas fa-edit"></i>
+                  </button>
+                  <button class="action-btn delete-btn" onclick="deleteUser('{{ user.id }}')">
+                    <i class="fas fa-trash"></i>
+                  </button>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Bus Management Content -->
+      <div id="bus-management-content" style="display: none;">
+        <button class="add-btn" onclick="showAddBusModal()">
+          <i class="fas fa-plus"></i> Add Bus
+        </button>
+
+        <div class="data-table">
+          <table id="buses-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Bus Number</th>
+                <th>Model</th>
+                <th>Capacity</th>
+                <th>Current Route</th>
+                <th>Driver</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for bus in buses %}
+              <tr>
+                <td>{{ bus.id }}</td>
+                <td>{{ bus.name }}</td>
+                <td>{{ bus.model }}</td>
+                <td>{{ bus.capacity }}</td>
+                <td>{{ bus.route }}</td>
+                <td>{{ bus.driver }}</td>
+                <td>
+                  <span class="status-badge
+                    {% if bus.status == 'active' %}status-active
+                    {% elif bus.status == 'maintenance' %}status-maintenance
+                    {% else %}status-inactive{% endif %}">
+                    {{ bus.status|capitalize }}
+                  </span>
+                </td>
+                <td>
+                  <button class="action-btn view-btn" onclick="viewBus('{{ bus.id }}')">
+                    <i class="fas fa-eye"></i>
+                  </button>
+                  <button class="action-btn edit-btn" onclick="editBus('{{ bus.id }}')">
+                    <i class="fas fa-edit"></i>
+                  </button>
+                  <button class="action-btn delete-btn" onclick="deleteBus('{{ bus.id }}')">
+                    <i class="fas fa-trash"></i>
+                  </button>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Route Management Content -->
+      <div id="route-management-content" style="display: none;">
+        <button class="add-btn" onclick="showAddRouteModal()">
+          <i class="fas fa-plus"></i> Add Route
+        </button>
+
+        <div class="data-table">
+          <table id="routes-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Route Name</th>
+                <th>Stops</th>
+                <th>Distance</th>
+                <th>Assigned Buses</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for route in routes %}
+              <tr>
+                <td>{{ route.id }}</td>
+                <td>{{ route.name }}</td>
+                <td>
+                  <ul class="route-stops-list">
+                    {% for stop in route.stops.split(',') %}
+                    <li>{{ stop.strip() }}</li>
+                    {% endfor %}
+                  </ul>
+                </td>
+                <td>{{ route.distance }} km</td>
+                <td>{{ route.assigned_buses_count }}</td>
+                <td>
+                  <span class="status-badge
+                    {% if route.status == 'active' %}status-active
+                    {% else %}status-inactive{% endif %}">
+                    {{ route.status|capitalize }}
+                  </span>
+                </td>
+                <td>
+                  <button class="action-btn view-btn" onclick="viewRoute('{{ route.id }}')">
+                    <i class="fas fa-eye"></i>
+                  </button>
+                  <button class="action-btn edit-btn" onclick="editRoute('{{ route.id }}')">
+                    <i class="fas fa-edit"></i>
+                  </button>
+                  <button class="action-btn delete-btn" onclick="deleteRoute('{{ route.id }}')">
+                    <i class="fas fa-trash"></i>
+                  </button>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Reports Content -->
+      <div id="reports-content" style="display: none;">
+        <div class="form-container">
+          <h4>Generate Custom Report</h4>
+          <div class="form-group">
+            <label for="report-type">Report Type:</label>
+            <select id="report-type" class="form-control">
+              <option value="usage">Bus Usage</option>
+              <option value="passenger">Passenger Statistics</option>
+              <option value="financial">Financial Summary</option>
+              <option value="maintenance">Maintenance Logs</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="report-period">Time Period:</label>
+            <select id="report-period" class="form-control">
+              <option value="7">Last 7 Days</option>
+              <option value="30">Last 30 Days</option>
+              <option value="90">Last 90 Days</option>
+              <option value="custom">Custom Range</option>
+            </select>
+          </div>
+          <div id="custom-date-range" style="display: none;">
+            <div class="form-group">
+              <label for="start-date">Start Date:</label>
+              <input type="date" id="start-date" class="form-control">
+            </div>
+            <div class="form-group">
+              <label for="end-date">End Date:</label>
+              <input type="date" id="end-date" class="form-control">
+            </div>
+          </div>
+          <div class="form-actions">
+            <button class="btn btn-primary" onclick="generateReport()">
+              <i class="fas fa-download"></i> Generate Report
+            </button>
+          </div>
+        </div>
+
+        <div class="chart-container">
+          <canvas id="report-chart"></canvas>
+        </div>
+
+        <div class="data-table">
+          <table id="report-data-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Route</th>
+                <th>Passengers</th>
+                <th>Revenue</th>
+                <th>Distance</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for report in report_data %}
+              <tr>
+                <td>{{ report.date }}</td>
+                <td>{{ report.route }}</td>
+                <td>{{ report.passengers }}</td>
+                <td>{{ report.revenue }}</td>
+                <td>{{ report.distance }} km</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Notifications Content -->
+      <div id="notifications-content" style="display: none;">
+        <div class="form-container">
+          <h4>Notification Filters</h4>
+          <div class="form-group">
+            <label for="notification-type">Filter by Type:</label>
+            <select id="notification-type" class="form-control" onchange="filterNotifications()">
+              <option value="all">All Notifications</option>
+              <option value="system">System Alerts</option>
+              <option value="maintenance">Maintenance</option>
+              <option value="schedule">Schedule Changes</option>
+            </select>
+          </div>
+        </div>
+
+        {% for notification in notifications %}
+        <div class="notification-item" data-type="{{ notification.type }}">
+          <h4>{{ notification.title }}</h4>
+          <p>{{ notification.message }}</p>
+          <div class="notification-meta">
+            <span><i class="fas fa-calendar-alt"></i> {{ notification.created_at }}</span>
+            <span><i class="fas fa-bell"></i> {{ notification.type|capitalize }}</span>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+
+      <!-- Feedback Content -->
+      <div id="feedback-content" style="display: none;">
+        <div class="form-container">
+          <h4>Feedback Filters</h4>
+          <div class="form-group">
+            <label for="feedback-status">Filter by Status:</label>
+            <select id="feedback-status" class="form-control" onchange="filterFeedback()">
+              <option value="all">All Feedback</option>
+              <option value="new">New</option>
+              <option value="in-progress">In Progress</option>
+              <option value="resolved">Resolved</option>
+            </select>
+          </div>
+        </div>
+
+        {% for feedback in feedbacks %}
+        <div class="feedback-item" data-status="{{ feedback.status }}">
+          <h4>{{ feedback.name }}</h4>
+          <p>{{ feedback.message }}</p>
+          <div class="feedback-meta">
+            <span><i class="fas fa-user"></i> {{ feedback.email }}</span>
+            <span><i class="fas fa-calendar-alt"></i> {{ feedback.created_at }}</span>
+            <span class="status-badge
+              {% if feedback.status == 'new' %}status-active
+              {% elif feedback.status == 'in-progress' %}status-pending
+              {% else %}status-resolved{% endif %}">
+              {{ feedback.status|replace('-', ' ')|title }}
+            </span>
+          </div>
+          <div class="feedback-actions">
+            <button class="btn btn-primary" onclick="resolveFeedback('{{ feedback.id }}')">
+              {% if feedback.status == 'resolved' %}
+              <i class="fas fa-check-circle"></i> Resolved
+              {% else %}
+              <i class="fas fa-check"></i> Mark as Resolved
+              {% endif %}
+            </button>
+            <button class="btn btn-secondary" onclick="replyToFeedback('{{ feedback.id }}')">
+              <i class="fas fa-reply"></i> Reply
+            </button>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+
+      <!-- Settings Content -->
+      <div id="settings-content" style="display: none;">
+        <div class="form-container">
+          <h4>General Settings</h4>
+          <div class="form-group">
+            <label for="system-name">System Name:</label>
+            <input type="text" id="system-name" class="form-control" value="UTTS Admin Portal">
+          </div>
+          <div class="form-group">
+            <label for="timezone">Timezone:</label>
+            <select id="timezone" class="form-control">
+              <option value="GMT+5">(GMT+5) Pakistan Standard Time</option>
+              <option value="GMT+0">(GMT+0) UTC</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="records-per-page">Records Per Page:</label>
+            <select id="records-per-page" class="form-control">
+              <option value="10">10</option>
+              <option value="25">25</option>
+              <option value="50">50</option>
+              <option value="100">100</option>
+            </select>
+          </div>
+          <div class="form-actions">
+            <button class="btn btn-primary" onclick="saveSystemSettings()">
+              <i class="fas fa-save"></i> Save Settings
+            </button>
+          </div>
+        </div>
+
+        <div class="form-container">
+          <h4>Map Configuration</h4>
+          <div class="form-group">
+            <label for="map-style">Map Style:</label>
+            <select id="map-style" class="form-control">
+              <option value="standard">Standard</option>
+              <option value="satellite">Satellite</option>
+              <option value="hybrid">Hybrid</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="refresh-rate">Refresh Rate (seconds):</label>
+            <input type="number" id="refresh-rate" class="form-control" value="15" min="5" max="60">
+          </div>
+          <div class="form-group">
+            <label for="default-location">Default Location:</label>
+            <input type="text" id="default-location" class="form-control" value="Bahawalpur, Pakistan">
+          </div>
+          <div class="form-actions">
+            <button class="btn btn-primary" onclick="saveMapSettings()">
+              <i class="fas fa-save"></i> Save Settings
+            </button>
+          </div>
+        </div>
+
+        <div class="form-container">
+          <h4>Account Settings</h4>
+          <div class="form-group">
+            <label for="admin-name">Your Name:</label>
+            <input type="text" id="admin-name" class="form-control" value="Admin User">
+          </div>
+          <div class="form-group">
+            <label for="admin-email">Email Address:</label>
+            <input type="email" id="admin-email" class="form-control" value="admin@utts.edu.pk">
+          </div>
+          <div class="form-actions">
+            <button class="btn btn-primary" onclick="saveAccountSettings()">
+              <i class="fas fa-save"></i> Update Account
+            </button>
+            <button class="btn btn-secondary" onclick="showChangePassword()">
+              <i class="fas fa-key"></i> Change Password
+            </button>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- JavaScript Libraries -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <script src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+  <script>
+    // Global variables
+    let map;
+    let userMarker;
+    let busMarkers = [];
+    let reportChart;
+    let currentSection = 'dashboard';
+
+    // Initialize the application
+    document.addEventListener('DOMContentLoaded', function() {
+      initializeMap();
+      initializeDataTables();
+      initializeEventListeners();
+      loadInitialData();
+
+      // Check URL hash to determine which section to show
+      const hash = window.location.hash.substring(1) || 'dashboard';
+      showSection(hash);
+    });
+
+    // Initialize the map
+    function initializeMap() {
+      map = L.map('map').setView([29.3949, 71.6839], 14); // Coordinates for Bahawalpur
+
+      // Add a tile layer (OpenStreetMap)
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+      }).addTo(map);
+
+      // Add user location marker
+      map.locate({ setView: false, maxZoom: 16 });
+
+      map.on('locationfound', function(e) {
+        if (userMarker) {
+          userMarker.setLatLng(e.latlng);
+        } else {
+          userMarker = L.marker(e.latlng, {
+            icon: L.icon({
+              iconUrl: "{{ url_for('static', filename='images/person-icon.png') }}",
+              iconSize: [40, 40],
+              iconAnchor: [20, 40]
+            })
+          }).addTo(map).bindPopup("You are here!").openPopup();
+        }
+      });
+
+      // Load bus routes and locations
+      loadBusRoutes();
+    }
+
+    // Load bus routes from API
+    function loadBusRoutes() {
+      fetch('/api/bus-routes')
+        .then(response => response.json())
+        .then(data => {
+          data.routes.forEach(route => {
+            // Draw route on map
+            const routeLine = L.polyline(route.coordinates, {
+              color: route.color || "#007bff",
+              weight: 6,
+              opacity: 0.7
+            }).addTo(map);
+
+            // Add start and end markers
+            L.marker(route.coordinates[0], {
+              icon: L.icon({
+                iconUrl: "{{ url_for('static', filename='images/start-icon.png') }}",
+                iconSize: [40, 40],
+                iconAnchor: [20, 40]
+              })
+            }).addTo(map).bindPopup(`<b>Start:</b> ${route.start}`);
+
+            L.marker(route.coordinates[route.coordinates.length - 1], {
+              icon: L.icon({
+                iconUrl: "{{ url_for('static', filename='images/end-icon.png') }}",
+                iconSize: [40, 40],
+                iconAnchor: [20, 40]
+              })
+            }).addTo(map).bindPopup(`<b>End:</b> ${route.end}`);
+
+            // Add buses to the route
+            route.buses.forEach(bus => {
+              const busMarker = L.marker(route.coordinates[0], {
+                icon: L.icon({
+                  iconUrl: "{{ url_for('static', filename='images/bus-icon.png') }}",
+                  iconSize: [40, 40],
+                  iconAnchor: [20, 40]
+                })
+              }).addTo(map).bindPopup(`<b>Bus ${bus.id}</b><br>Route: ${route.name}`);
+
+              busMarkers.push({
+                id: bus.id,
+                marker: busMarker,
+                route: route.coordinates,
+                position: 0,
+                speed: bus.speed || 0.01
+              });
+            });
+          });
+
+          // Start moving buses
+          moveBuses();
+        })
+        .catch(error => {
+          console.error('Error loading bus routes:', error);
+        });
+    }
+
+    // Move buses along their routes
+    function moveBuses() {
+      busMarkers.forEach(bus => {
+        bus.position += bus.speed;
+
+        if (bus.position >= bus.route.length - 1) {
+          bus.position = 0; // Reset to start of route
+        }
+
+        const nextCoord = bus.route[Math.floor(bus.position)];
+        bus.marker.setLatLng(nextCoord);
+        bus.marker.setPopupContent(`<b>Bus ${bus.id}</b><br>Position: ${Math.floor(bus.position)}/${bus.route.length}`);
+      });
+
+      requestAnimationFrame(moveBuses);
+    }
+
+    // Initialize DataTables
+    function initializeDataTables() {
+      $('#users-table').DataTable({
+        responsive: true,
+        pageLength: 10,
+        lengthMenu: [10, 25, 50, 100],
+        order: [[0, 'asc']]
+      });
+
+      $('#buses-table').DataTable({
+        responsive: true,
+        pageLength: 10,
+        lengthMenu: [10, 25, 50, 100],
+        order: [[0, 'asc']]
+      });
+
+      $('#routes-table').DataTable({
+        responsive: true,
+        pageLength: 10,
+        lengthMenu: [10, 25, 50, 100],
+        order: [[0, 'asc']]
+      });
+
+      $('#activity-table').DataTable({
+        responsive: true,
+        pageLength: 5,
+        order: [[0, 'desc']]
+      });
+
+      $('#report-data-table').DataTable({
+        responsive: true,
+        pageLength: 10,
+        lengthMenu: [10, 25, 50, 100],
+        order: [[0, 'desc']]
+      });
+    }
+
+    // Initialize event listeners
+    function initializeEventListeners() {
+      // Report period selector
+      document.getElementById('report-period').addEventListener('change', function() {
+        const customRange = document.getElementById('custom-date-range');
+        customRange.style.display = this.value === 'custom' ? 'block' : 'none';
+      });
+
+      // User dropdown
+      document.addEventListener('click', function(e) {
+        const dropdown = document.getElementById('userDropdown');
+        if (!e.target.closest('.user-profile')) {
+          dropdown.classList.remove('show');
+        }
+      });
+    }
+
+    // Load initial data
+    function loadInitialData() {
+      // Initialize report chart
+      initializeReportChart();
+
+      // Load any other initial data needed
+    }
+
+    // Initialize report chart
+    function initializeReportChart() {
+      const ctx = document.getElementById('report-chart').getContext('2d');
+      reportChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: ['Route 1', 'Route 2', 'Route 3', 'Route 4'],
+          datasets: [{
+            label: 'Passenger Count',
+            data: [120, 190, 80, 150],
+            backgroundColor: [
+              'rgba(54, 162, 235, 0.5)',
+              'rgba(255, 99, 132, 0.5)',
+              'rgba(75, 192, 192, 0.5)',
+              'rgba(153, 102, 255, 0.5)'
+            ],
+            borderColor: [
+              'rgba(54, 162, 235, 1)',
+              'rgba(255, 99, 132, 1)',
+              'rgba(75, 192, 192, 1)',
+              'rgba(153, 102, 255, 1)'
+            ],
+            borderWidth: 1
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: {
+              beginAtZero: true
+            }
+          }
+        }
+      });
+    }
+
+    // Show/hide sections
+    function showSection(sectionId) {
+      currentSection = sectionId;
+      document.getElementById('page-title').textContent = sectionId.charAt(0).toUpperCase() + sectionId.slice(1).replace('-', ' ');
+
+      // Hide all content sections
+      document.querySelectorAll('[id$="-content"]').forEach(section => {
+        section.style.display = 'none';
+      });
+
+      // Show the selected section
+      document.getElementById(sectionId + '-content').style.display = 'block';
+
+      // Update active nav item
+      document.querySelectorAll('.sidebar nav ul li').forEach(item => {
+        item.classList.remove('active');
+      });
+      document.querySelector(`.sidebar nav ul li a[href="#${sectionId}"]`).parentElement.classList.add('active');
+
+      // Update URL hash
+      window.location.hash = sectionId;
+
+      // Initialize components if needed
+      if (sectionId === 'reports') {
+        updateReportChart('usage');
+      }
+    }
+
+    // Toggle sidebar
+    function toggleSidebar() {
+      document.querySelector('.sidebar').classList.toggle('collapsed');
+      document.querySelector('.main-content').classList.toggle('expanded');
+    }
+
+    // Toggle user dropdown
+    function toggleUserDropdown() {
+      document.getElementById('userDropdown').classList.toggle('show');
+    }
+
+    // Filter notifications
+    function filterNotifications() {
+      const type = document.getElementById('notification-type').value;
+      document.querySelectorAll('.notification-item').forEach(item => {
+        if (type === 'all' || item.dataset.type === type) {
+          item.style.display = 'block';
+        } else {
+          item.style.display = 'none';
+        }
+      });
+    }
+
+    // Filter feedback
+    function filterFeedback() {
+      const status = document.getElementById('feedback-status').value;
+      document.querySelectorAll('.feedback-item').forEach(item => {
+        if (status === 'all' || item.dataset.status === status) {
+          item.style.display = 'block';
+        } else {
+          item.style.display = 'none';
+        }
+      });
+    }
+
+    // Generate report
+    function generateReport() {
+      const reportType = document.getElementById('report-type').value;
+      const period = document.getElementById('report-period').value;
+
+      let startDate, endDate;
+      if (period === 'custom') {
+        startDate = document.getElementById('start-date').value;
+        endDate = document.getElementById('end-date').value;
+      } else {
+        const days = parseInt(period);
+        endDate = new Date();
+        startDate = new Date();
+        startDate.setDate(endDate.getDate() - days);
+      }
+
+      Swal.fire({
+        title: 'Generating Report',
+        html: 'Please wait while we generate your report...',
+        timerProgressBar: true,
+        didOpen: () => {
+          Swal.showLoading();
+
+          // Simulate API call
+          setTimeout(() => {
+            Swal.close();
+            updateReportChart(reportType);
+            Swal.fire(
+              'Report Generated!',
+              'Your report is ready to download.',
+              'success'
+            );
+          }, 1500);
+        }
+      });
+    }
+
+    // Update report chart
+    function updateReportChart(reportType) {
+      // In a real app, this would fetch data from the API
+      let newData, newLabels, label;
+
+      switch(reportType) {
+        case 'passenger':
+          newLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May'];
+          newData = [1200, 1500, 1800, 2000, 2200];
+          label = 'Passenger Count';
+          break;
+        case 'financial':
+          newLabels = ['Revenue', 'Expenses', 'Profit'];
+          newData = [30000, 22000, 8000];
+          label = 'Amount (PKR)';
+          break;
+        case 'maintenance':
+          newLabels = ['Oil Change', 'Tire Rotation', 'Brake Check'];
+          newData = [15, 8, 5];
+          label = 'Maintenance Count';
+          break;
+        default: // usage
+          newLabels = ['Route 1', 'Route 2', 'Route 3', 'Route 4'];
+          newData = [120, 190, 80, 150];
+          label = 'Passenger Count';
+      }
+
+      reportChart.data.labels = newLabels;
+      reportChart.data.datasets[0].data = newData;
+      reportChart.data.datasets[0].label = label;
+      reportChart.update();
+    }
+
+    // CRUD Operations for Users
+    function viewUser(userId) {
+      fetch(`/api/users/${userId}`)
+        .then(response => response.json())
+        .then(user => {
+          Swal.fire({
+            title: `User: ${user.username}`,
+            html: `
+              <div style="text-align: left; margin: 10px 0;">
+                <p><strong>Email:</strong> ${user.email}</p>
+                <p><strong>Role:</strong> ${user.role}</p>
+                <p><strong>Status:</strong> <span class="status-badge ${user.status === 'active' ? 'status-active' : 'status-inactive'}">${user.status}</span></p>
+                <p><strong>Last Login:</strong> ${user.last_login}</p>
+              </div>
+            `,
+            confirmButtonText: 'Close'
+          });
+        });
+    }
+
+    function showAddUserModal() {
+      Swal.fire({
+        title: 'Add New User',
+        html: `
+          <input id="user-name" class="swal2-input" placeholder="Full Name">
+          <input id="user-email" class="swal2-input" placeholder="Email" type="email">
+          <select id="user-role" class="swal2-input">
+            <option value="admin">Admin</option>
+            <option value="driver">Driver</option>
+            <option value="student">Student</option>
+          </select>
+          <select id="user-status" class="swal2-input">
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+            <option value="pending">Pending</option>
+          </select>
+          <input id="user-password" class="swal2-input" placeholder="Password" type="password">
+        `,
+        focusConfirm: false,
+        preConfirm: () => {
+          return {
+            name: document.getElementById('user-name').value,
+            email: document.getElementById('user-email').value,
+            role: document.getElementById('user-role').value,
+            status: document.getElementById('user-status').value,
+            password: document.getElementById('user-password').value
+          }
+        }
+      }).then((result) => {
+        if (result.isConfirmed) {
+          // In a real app, you would make an API call here
+          Swal.fire(
+            'User Added!',
+            'New user has been created successfully.',
+            'success'
+          );
+          // Refresh the users table
+          $('#users-table').DataTable().ajax.reload();
+        }
+      });
+    }
+
+    function editUser(userId) {
+      fetch(`/api/users/${userId}`)
+        .then(response => response.json())
+        .then(user => {
+          Swal.fire({
+            title: 'Edit User',
+            html: `
+              <input id="edit-user-name" class="swal2-input" value="${user.username}">
+              <input id="edit-user-email" class="swal2-input" value="${user.email}" type="email">
+              <select id="edit-user-role" class="swal2-input">
+                <option value="admin" ${user.role === 'admin' ? 'selected' : ''}>Admin</option>
+                <option value="driver" ${user.role === 'driver' ? 'selected' : ''}>Driver</option>
+                <option value="student" ${user.role === 'student' ? 'selected' : ''}>Student</option>
+              </select>
+              <select id="edit-user-status" class="swal2-input">
+                <option value="active" ${user.status === 'active' ? 'selected' : ''}>Active</option>
+                <option value="inactive" ${user.status === 'inactive' ? 'selected' : ''}>Inactive</option>
+                <option value="pending" ${user.status === 'pending' ? 'selected' : ''}>Pending</option>
+              </select>
+            `,
+            focusConfirm: false,
+            preConfirm: () => {
+              return {
+                name: document.getElementById('edit-user-name').value,
+                email: document.getElementById('edit-user-email').value,
+                role: document.getElementById('edit-user-role').value,
+                status: document.getElementById('edit-user-status').value
+              }
+            }
+          }).then((result) => {
+            if (result.isConfirmed) {
+              // In a real app, you would make an API call here
+              Swal.fire(
+                'User Updated!',
+                'User information has been updated.',
+                'success'
+              );
+              // Refresh the users table
+              $('#users-table').DataTable().ajax.reload();
+            }
+          });
+        });
+    }
+
+    function deleteUser(userId) {
+      Swal.fire({
+        title: 'Are you sure?',
+        text: "You won't be able to revert this!",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#3085d6',
+        cancelButtonColor: '#d33',
+        confirmButtonText: 'Yes, delete it!'
+      }).then((result) => {
+        if (result.isConfirmed) {
+          // In a real app, you would make an API call here
+          Swal.fire(
+            'Deleted!',
+            'User has been deleted.',
+            'success'
+          );
+          // Refresh the users table
+          $('#users-table').DataTable().ajax.reload();
+        }
+      });
+    }
+
+    // Similar CRUD functions for buses, routes, etc.
+    // ...
+
+    // Save system settings
+    function saveSystemSettings() {
+      const systemName = document.getElementById('system-name').value;
+      const timezone = document.getElementById('timezone').value;
+      const recordsPerPage = document.getElementById('records-per-page').value;
+
+      // In a real app, you would make an API call here
+      Swal.fire(
+        'Settings Saved!',
+        'Your system settings have been updated.',
+        'success'
+      );
+    }
+
+    // Save map settings
+    function saveMapSettings() {
+      const mapStyle = document.getElementById('map-style').value;
+      const refreshRate = document.getElementById('refresh-rate').value;
+      const defaultLocation = document.getElementById('default-location').value;
+
+      // In a real app, you would make an API call here
+      Swal.fire(
+        'Settings Saved!',
+        'Your map settings have been updated.',
+        'success'
+      );
+    }
+
+    // Save account settings
+    function saveAccountSettings() {
+      const adminName = document.getElementById('admin-name').value;
+      const adminEmail = document.getElementById('admin-email').value;
+
+      // In a real app, you would make an API call here
+      Swal.fire(
+        'Account Updated!',
+        'Your account information has been saved.',
+        'success'
+      );
+    }
+
+    // Change password
+    function showChangePassword() {
+      Swal.fire({
+        title: 'Change Password',
+        html: `
+          <input id="current-password" class="swal2-input" placeholder="Current Password" type="password">
+          <input id="new-password" class="swal2-input" placeholder="New Password" type="password">
+          <input id="confirm-password" class="swal2-input" placeholder="Confirm Password" type="password">
+        `,
+        focusConfirm: false,
+        preConfirm: () => {
+          const current = document.getElementById('current-password').value;
+          const newPass = document.getElementById('new-password').value;
+          const confirm = document.getElementById('confirm-password').value;
+
+          if (newPass !== confirm) {
+            Swal.showValidationMessage('New passwords do not match');
+            return false;
+          }
+
+          return { current, newPass };
+        }
+      }).then((result) => {
+        if (result.isConfirmed) {
+          // In a real app, you would make an API call here
+          Swal.fire(
+            'Password Changed!',
+            'Your password has been updated successfully.',
+            'success'
+          );
+        }
+      });
+    }
+
+    // Resolve feedback
+    function resolveFeedback(feedbackId) {
+      Swal.fire({
+        title: 'Mark as Resolved?',
+        text: "This feedback will be marked as resolved.",
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#3085d6',
+        cancelButtonColor: '#d33',
+        confirmButtonText: 'Yes, mark resolved'
+      }).then((result) => {
+        if (result.isConfirmed) {
+          // In a real app, you would make an API call here
+          Swal.fire(
+            'Resolved!',
+            'Feedback has been marked as resolved.',
+            'success'
+          );
+          // Refresh the feedback list
+          document.querySelector(`.feedback-item[data-id="${feedbackId}"] .status-badge`)
+            .classList.remove('status-active', 'status-pending');
+          document.querySelector(`.feedback-item[data-id="${feedbackId}"] .status-badge`)
+            .classList.add('status-resolved');
+          document.querySelector(`.feedback-item[data-id="${feedbackId}"] .status-badge`)
+            .textContent = 'Resolved';
+        }
+      });
+    }
+
+    // Reply to feedback
+    function replyToFeedback(feedbackId) {
+      Swal.fire({
+        title: 'Reply to Feedback',
+        input: 'textarea',
+        inputPlaceholder: 'Type your reply here...',
+        showCancelButton: true,
+        confirmButtonText: 'Send Reply',
+        preConfirm: (reply) => {
+          if (!reply) {
+            Swal.showValidationMessage('Please enter a reply');
+            return false;
+          }
+          return reply;
+        }
+      }).then((result) => {
+        if (result.isConfirmed) {
+          // In a real app, you would make an API call here
+          Swal.fire(
+            'Reply Sent!',
+            'Your reply has been sent to the user.',
+            'success'
+          );
+        }
+      });
+    }
+
+    // Handle window hash changes
+    window.addEventListener('hashchange', function() {
+      const hash = window.location.hash.substring(1) || 'dashboard';
+      showSection(hash);
+    });
+  </script>
+</body>
+</html>
